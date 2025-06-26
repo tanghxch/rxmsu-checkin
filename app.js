@@ -5,13 +5,12 @@ import { getFirestore, collection, addDoc, getDocs, query, where, orderBy, doc, 
 
 // Firebase configuration
 const firebaseConfig = {
-    // ใส่ config ของคุณที่นี่
-    apiKey: "your-api-key",
-    authDomain: "your-project.firebaseapp.com",
-    projectId: "your-project-id",
-    storageBucket: "your-project.appspot.com",
-    messagingSenderId: "123456789",
-    appId: "your-app-id"
+  apiKey: "AIzaSyAAc27WlP5Q1ZtKyGnj-52aMzVp201J4iA",
+  authDomain: "rx-checkin.firebaseapp.com",
+  projectId: "rx-checkin",
+  storageBucket: "rx-checkin.firebasestorage.app",
+  messagingSenderId: "1075688404567",
+  appId: "1:1075688404567:web:ef353461a074e212c89512"
 };
 
 // Initialize Firebase
