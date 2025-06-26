@@ -1,9 +1,9 @@
 // Import Firebase modules
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut as firebaseSignOut } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
-import { getFirestore, collection, addDoc, getDocs, query, where, orderBy, doc, setDoc, getDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+import { getFirestore, collection, addDoc, getDocs, query, where, orderBy, doc, setDoc, getDoc, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
-// Firebase configuration
+// Firebase configuration - ใส่ config จริงของคุณที่นี่
 const firebaseConfig = {
   apiKey: "AIzaSyAAc27WlP5Q1ZtKyGnj-52aMzVp201J4iA",
   authDomain: "rx-checkin.firebaseapp.com",
@@ -173,7 +173,6 @@ async function loadStudentInfo(email) {
     }
 }
 
-// Check attendance
 // Check attendance - อนุญาตให้เช็คได้ทุกกรณี
 window.checkAttendance = async () => {
     if (!navigator.geolocation) {
@@ -218,6 +217,7 @@ window.checkAttendance = async () => {
                 html: `
                     <div class="text-lg">
                         <p class="mb-2">เวลาเช็คชื่อ: <strong>${currentTime}</strong></p>
+                        <p class="text-gray-600">ระยะทาง: ${Math.round(distance)} เมตร</p>
                     </div>
                 `,
                 confirmButtonColor: '#10B981',
@@ -249,7 +249,9 @@ window.checkAttendance = async () => {
 // Update attendance status display
 function updateAttendanceStatusDisplay(time, distance, isInRadius) {
     const statusDiv = document.getElementById('attendanceStatus');
-    const statusClass = isInRadius ? 'status-in' : 'status-out';
+    if (!statusDiv) return;
+    
+    const statusClass = isInRadius ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
     const statusText = isInRadius ? 'อยู่ในรัศมี' : 'อยู่นอกรัศมี';
     const statusIcon = isInRadius ? 'fa-check-circle' : 'fa-exclamation-circle';
     
@@ -264,6 +266,22 @@ function updateAttendanceStatusDisplay(time, distance, isInRadius) {
             </div>
         </div>
     `;
+}
+
+// Calculate distance between two points
+function calculateDistance(lat1, lng1, lat2, lng2) {
+    const R = 6371e3; // Earth's radius in meters
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    const Δφ = (lat2 - lat1) * Math.PI / 180;
+    const Δλ = (lng2 - lng1) * Math.PI / 180;
+
+    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+              Math.cos(φ1) * Math.cos(φ2) *
+              Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c;
 }
 
 // Save attendance - เพิ่มการบันทึกสถานะตำแหน่ง
@@ -305,6 +323,105 @@ async function saveAttendance(lat, lng, distance, isInRadius) {
     }
 }
 
+// Admin functions
+window.addStudent = async () => {
+    const studentId = document.getElementById('studentId').value;
+    const studentName = document.getElementById('studentName').value;
+    const studentEmail = document.getElementById('studentEmail').value;
+    const studentYear = document.getElementById('studentYear').value;
+    
+    if (!studentId || !studentName || !studentEmail || !studentYear) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'กรุณากรอกข้อมูลให้ครบ',
+            confirmButtonColor: '#3B82F6'
+        });
+        return;
+    }
+    
+    if (!studentEmail.endsWith('@msu.ac.th')) {
+        Swal.fire({
+            icon: 'error',
+            title: 'อีเมล์ไม่ถูกต้อง',
+            text: 'กรุณาใช้อีเมล์ @msu.ac.th เท่านั้น',
+            confirmButtonColor: '#3B82F6'
+        });
+        return;
+    }
+    
+    try {
+        await addDoc(collection(db, 'students'), {
+            studentId,
+            name: studentName,
+            email: studentEmail,
+            year: parseInt(studentYear),
+            createdAt: new Date()
+        });
+        
+        // Clear form
+        document.getElementById('studentId').value = '';
+        document.getElementById('studentName').value = '';
+        document.getElementById('studentEmail').value = '';
+        document.getElementById('studentYear').value = '';
+        
+        Swal.fire({
+            icon: 'success',
+            title: 'เพิ่มนิสิตสำเร็จ',
+            confirmButtonColor: '#10B981'
+        });
+        
+        await loadAdminData();
+    } catch (error) {
+        console.error('Error adding student:', error);
+        Swal.fire({
+            icon: 'error',
+            title: 'เกิดข้อผิดพลาด',
+            text: 'ไม่สามารถเพิ่มนิสิตได้',
+            confirmButtonColor: '#EF4444'
+        });
+    }
+};
+
+window.saveLocationSettings = async () => {
+    const lat = parseFloat(document.getElementById('refLat').value);
+    const lng = parseFloat(document.getElementById('refLng').value);
+    const radius = parseInt(document.getElementById('radius').value);
+    
+    if (!lat || !lng || !radius) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'กรุณากรอกข้อมูลให้ครบ',
+            confirmButtonColor: '#3B82F6'
+        });
+        return;
+    }
+    
+    try {
+        await setDoc(doc(db, 'settings', 'location'), {
+            referenceLocation: { lat, lng },
+            allowedRadius: radius,
+            updatedAt: new Date()
+        });
+        
+        referenceLocation = { lat, lng };
+        allowedRadius = radius;
+        
+        Swal.fire({
+            icon: 'success',
+            title: 'บันทึกการตั้งค่าสำเร็จ',
+            confirmButtonColor: '#10B981'
+        });
+    } catch (error) {
+        console.error('Error saving location settings:', error);
+        Swal.fire({
+            icon: 'error',
+            title: 'เกิดข้อผิดพลาด',
+            text: 'ไม่สามารถบันทึกการตั้งค่าได้',
+            confirmButtonColor: '#EF4444'
+        });
+    }
+};
+
 // Clear all attendance - ฟังก์ชันใหม่
 window.clearAllAttendance = async () => {
     const result = await Swal.fire({
@@ -335,8 +452,8 @@ window.clearAllAttendance = async () => {
             const querySnapshot = await getDocs(attendanceQuery);
             
             const deletePromises = [];
-            querySnapshot.forEach((doc) => {
-                deletePromises.push(deleteDoc(doc.ref));
+            querySnapshot.forEach((docSnap) => {
+                deletePromises.push(deleteDoc(docSnap.ref));
             });
             
             await Promise.all(deletePromises);
@@ -403,6 +520,29 @@ window.deleteAttendance = async (docId) => {
     }
 };
 
+// Load location settings
+async function loadLocationSettings() {
+    try {
+        const docRef = doc(db, 'settings', 'location');
+        const docSnap = await getDoc(docRef);
+        
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            referenceLocation = data.referenceLocation;
+            allowedRadius = data.allowedRadius;
+            
+            // Update admin form if visible
+            if (!adminDashboard.classList.contains('hidden')) {
+                document.getElementById('refLat').value = referenceLocation.lat;
+                document.getElementById('refLng').value = referenceLocation.lng;
+                document.getElementById('radius').value = allowedRadius;
+            }
+        }
+    } catch (error) {
+        console.error('Error loading location settings:', error);
+    }
+}
+
 // Load admin data - อัปเดตให้แสดงสถิติและสถานะตำแหน่ง
 async function loadAdminData() {
     try {
@@ -445,7 +585,7 @@ async function loadAdminData() {
             const row = document.createElement('tr');
             row.className = 'border-b border-gray-100 hover:bg-gray-50';
             
-            const statusClass = data.isInRadius ? 'status-in' : 'status-out';
+            const statusClass = data.isInRadius ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
             const statusText = data.isInRadius ? 'อยู่ในรัศมี' : 'อยู่นอกรัศมี';
             const statusIcon = data.isInRadius ? 'fa-check-circle' : 'fa-exclamation-circle';
             
@@ -478,6 +618,3 @@ async function loadAdminData() {
         console.error('Error loading admin data:', error);
     }
 }
-
-// เพิ่ม import สำหรับ deleteDoc
-import { getFirestore, collection, addDoc, getDocs, query, where, orderBy, doc, setDoc, getDoc, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
