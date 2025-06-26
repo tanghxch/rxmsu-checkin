@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบเช็คชื่อนิสิต MSU</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Kanit', sans-serif; }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 min-h-screen">
+    <!-- Header -->
+    <header class="bg-white shadow-lg border-b-4 border-gradient-to-r from-blue-500 to-purple-600">
+        <div class="container mx-auto px-4 py-6">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="bg-gradient-to-r from-blue-500 to-purple-600 p-3 rounded-xl">
+                        <i class="fas fa-graduation-cap text-white text-2xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-800">ระบบเช็คชื่อนิสิต</h1>
+                        <p class="text-gray-600">มหาวิทยาลัยมหาสารคาม</p>
+                    </div>
+                </div>
+                <div id="userInfo" class="hidden flex items-center space-x-4">
+                    <img id="userPhoto" class="w-10 h-10 rounded-full border-2 border-blue-500" alt="User">
+                    <span id="userName" class="text-gray-700 font-medium"></span>
+                    <button onclick="signOut()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition-colors">
+                        <i class="fas fa-sign-out-alt mr-2"></i>ออกจากระบบ
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-8">
+        <!-- Login Section -->
+        <div id="loginSection" class="max-w-md mx-auto">
+            <div class="bg-white rounded-2xl shadow-2xl p-8 border border-gray-100">
+                <div class="text-center mb-8">
+                    <div class="bg-gradient-to-r from-blue-500 to-purple-600 p-4 rounded-full w-20 h-20 mx-auto mb-4">
+                        <i class="fas fa-user-graduate text-white text-3xl mt-2"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-gray-800 mb-2">เข้าสู่ระบบ</h2>
+                    <p class="text-gray-600">กรุณาเข้าสู่ระบบด้วย Google Account MSU</p>
+                </div>
+                <button onclick="signInWithGoogle()" 
+                        class="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl">
+                    <i class="fab fa-google mr-3"></i>
+                    เข้าสู่ระบบด้วย Google
+                </button>
+            </div>
+        </div>
+
+        <!-- Student Dashboard -->
+        <div id="studentDashboard" class="hidden max-w-4xl mx-auto">
+            <div class="grid md:grid-cols-2 gap-8">
+                <!-- Check-in Card -->
+                <div class="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+                    <div class="text-center">
+                        <div class="bg-gradient-to-r from-green-500 to-teal-600 p-4 rounded-full w-20 h-20 mx-auto mb-6">
+                            <i class="fas fa-map-marker-alt text-white text-3xl mt-2"></i>
+                        </div>
+                        <h3 class="text-2xl font-bold text-gray-800 mb-4">เช็คชื่อเข้าเรียน</h3>
+                        <button onclick="checkAttendance()" 
+                                class="bg-gradient-to-r from-green-500 to-teal-600 hover:from-green-600 hover:to-teal-700 text-white font-semibold py-3 px-8 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl">
+                            <i class="fas fa-check mr-2"></i>
+                            เช็คชื่อตอนนี้
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Student Info Card -->
+                <div class="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+                    <h3 class="text-xl font-bold text-gray-800 mb-6">ข้อมูลนิสิต</h3>
+                    <div id="studentInfo" class="space-y-4">
+                        <!-- จะถูกเติมด้วย JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin Dashboard -->
+        <div id="adminDashboard" class="hidden max-w-6xl mx-auto">
+            <div class="grid lg:grid-cols-3 gap-8">
+                <!-- Location Settings -->
+                <div class="bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
+                    <h3 class="text-xl font-bold text-gray-800 mb-6">
+                        <i class="fas fa-cog text-blue-500 mr-2"></i>
+                        ตั้งค่าพิกัด
+                    </h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-gray-700 font-medium mb-2">ละติจูด</label>
+                            <input type="number" id="refLat" step="any" 
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 font-medium mb-2">ลองจิจูด</label>
+                            <input type="number" id="refLng" step="any" 
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 font-medium mb-2">รัศมี (เมตร)</label>
+                            <input type="number" id="radius" value="100" 
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                        <button onclick="saveLocationSettings()" 
+                                class="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+                            บันทึกการตั้งค่า
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Add Student -->
+                <div class="bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
+                    <h3 class="text-xl font-bold text-gray-800 mb-6">
+                        <i class="fas fa-user-plus text-green-500 mr-2"></i>
+                        เพิ่มข้อมูลนิสิต
+                    </h3>
+                    <div class="space-y-4">
+                        <input type="text" id="studentId" placeholder="รหัสนิสิต" 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <input type="text" id="studentName" placeholder="ชื่อ-นามสกุล" 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <input type="email" id="studentEmail" placeholder="อีเมล์" 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <input type="number" id="studentYear" placeholder="ชั้นปี" min="1" max="4" 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <button onclick="addStudent()" 
+                                class="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+                            เพิ่มนิสิต
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Quick Stats -->
+                <div class="bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
+                    <h3 class="text-xl font-bold text-gray-800 mb-6">
+                        <i class="fas fa-chart-bar text-purple-500 mr-2"></i>
+                        สถิติด่วน
+                    </h3>
+                    <div class="space-y-4">
+                        <div class="bg-blue-50 p-4 rounded-lg">
+                            <div class="text-2xl font-bold text-blue-600" id="totalStudents">0</div>
+                            <div class="text-gray-600">จำนวนนิสิตทั้งหมด</div>
+                        </div>
+                        <div class="bg-green-50 p-4 rounded-lg">
+                            <div class="text-2xl font-bold text-green-600" id="todayAttendance">0</div>
+                            <div class="text-gray-600">เช็คชื่อวันนี้</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Attendance Report -->
+            <div class="mt-8 bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
+                <h3 class="text-xl font-bold text-gray-800 mb-6">
+                    <i class="fas fa-clipboard-list text-indigo-500 mr-2"></i>
+                    รายงานการเช็คชื่อ
+                </h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full table-auto">
+                        <thead>
+                            <tr class="bg-gray-50">
+                                <th class="px-4 py-3 text-left text-gray-700 font-semibold">รหัสนิสิต</th>
+                                <th class="px-4 py-3 text-left text-gray-700 font-semibold">ชื่อ-นามสกุล</th>
+                                <th class="px-4 py-3 text-left text-gray-700 font-semibold">เวลาเช็คชื่อ</th>
+                                <th class="px-4 py-3 text-left text-gray-700 font-semibold">สถานะ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="attendanceTable">
+                            <!-- จะถูกเติมด้วย JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Firebase SDK -->
+    <script type="module" src="app.js"></script>
+</body>
+</html>
