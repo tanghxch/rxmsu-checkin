@@ -10,6 +10,8 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap');
         body { font-family: 'Kanit', sans-serif; }
+        .status-in { @apply bg-green-100 text-green-800; }
+        .status-out { @apply bg-red-100 text-red-800; }
     </style>
 </head>
 <body class="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 min-h-screen">
@@ -67,6 +69,9 @@
                             <i class="fas fa-map-marker-alt text-white text-3xl mt-2"></i>
                         </div>
                         <h3 class="text-2xl font-bold text-gray-800 mb-4">เช็คชื่อเข้าเรียน</h3>
+                        <div id="attendanceStatus" class="mb-6">
+                            <!-- Status will be shown here -->
+                        </div>
                         <button onclick="checkAttendance()" 
                                 class="bg-gradient-to-r from-green-500 to-teal-600 hover:from-green-600 hover:to-teal-700 text-white font-semibold py-3 px-8 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl">
                             <i class="fas fa-check mr-2"></i>
@@ -154,16 +159,31 @@
                             <div class="text-2xl font-bold text-green-600" id="todayAttendance">0</div>
                             <div class="text-gray-600">เช็คชื่อวันนี้</div>
                         </div>
+                        <div class="bg-orange-50 p-4 rounded-lg">
+                            <div class="text-2xl font-bold text-orange-600" id="inRadius">0</div>
+                            <div class="text-gray-600">อยู่ในรัศมี</div>
+                        </div>
+                        <div class="bg-red-50 p-4 rounded-lg">
+                            <div class="text-2xl font-bold text-red-600" id="outRadius">0</div>
+                            <div class="text-gray-600">อยู่นอกรัศมี</div>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Attendance Report -->
+            <!-- Attendance Management -->
             <div class="mt-8 bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
-                <h3 class="text-xl font-bold text-gray-800 mb-6">
-                    <i class="fas fa-clipboard-list text-indigo-500 mr-2"></i>
-                    รายงานการเช็คชื่อ
-                </h3>
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-xl font-bold text-gray-800">
+                        <i class="fas fa-clipboard-list text-indigo-500 mr-2"></i>
+                        รายงานการเช็คชื่อ
+                    </h3>
+                    <button onclick="clearAllAttendance()" 
+                            class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition-colors">
+                        <i class="fas fa-trash mr-2"></i>
+                        ล้างการเช็คชื่อทั้งหมด
+                    </button>
+                </div>
                 <div class="overflow-x-auto">
                     <table class="w-full table-auto">
                         <thead>
@@ -171,7 +191,9 @@
                                 <th class="px-4 py-3 text-left text-gray-700 font-semibold">รหัสนิสิต</th>
                                 <th class="px-4 py-3 text-left text-gray-700 font-semibold">ชื่อ-นามสกุล</th>
                                 <th class="px-4 py-3 text-left text-gray-700 font-semibold">เวลาเช็คชื่อ</th>
-                                <th class="px-4 py-3 text-left text-gray-700 font-semibold">สถานะ</th>
+                                <th class="px-4 py-3 text-left text-gray-700 font-semibold">ระยะทาง</th>
+                                <th class="px-4 py-3 text-left text-gray-700 font-semibold">สถานะตำแหน่ง</th>
+                                <th class="px-4 py-3 text-left text-gray-700 font-semibold">จัดการ</th>
                             </tr>
                         </thead>
                         <tbody id="attendanceTable">
