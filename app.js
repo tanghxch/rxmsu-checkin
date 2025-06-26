@@ -174,6 +174,7 @@ async function loadStudentInfo(email) {
 }
 
 // Check attendance
+// Check attendance - อนุญาตให้เช็คได้ทุกกรณี
 window.checkAttendance = async () => {
     if (!navigator.geolocation) {
         Swal.fire({
@@ -205,26 +206,29 @@ window.checkAttendance = async () => {
                 referenceLocation.lat, referenceLocation.lng
             );
             
-            if (distance <= allowedRadius) {
-                // Save attendance
-                await saveAttendance(userLat, userLng, distance);
-                
-                Swal.fire({
-                    icon: 'success',
-                    title: 'เช็คชื่อสำเร็จ!',
-                    text: `คุณอยู่ห่างจากจุดเช็คชื่อ ${Math.round(distance)} เมตร`,
-                    confirmButtonColor: '#10B981',
-                    showConfirmButton: true,
-                    timer: 3000
-                });
-            } else {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'อยู่นอกพื้นที่',
-                    text: `คุณอยู่ห่างจากจุดเช็คชื่อ ${Math.round(distance)} เมตร (เกินขอบเขต ${allowedRadius} เมตร)`,
-                    confirmButtonColor: '#EF4444'
-                });
-            }
+            const isInRadius = distance <= allowedRadius;
+            
+            // Save attendance (ทุกกรณี)
+            const currentTime = await saveAttendance(userLat, userLng, distance, isInRadius);
+            
+            // Show success message with time
+            Swal.fire({
+                icon: 'success',
+                title: 'เช็คชื่อเรียบร้อยแล้ว! ✅',
+                html: `
+                    <div class="text-lg">
+                        <p class="mb-2">เวลาเช็คชื่อ: <strong>${currentTime}</strong></p>
+                        <p class="text-gray-600">ระยะทาง: ${Math.round(distance)} เมตร</p>
+                    </div>
+                `,
+                confirmButtonColor: '#10B981',
+                showConfirmButton: true,
+                timer: 4000
+            });
+            
+            // Update attendance status display
+            updateAttendanceStatusDisplay(currentTime, distance, isInRadius);
+            
         },
         (error) => {
             console.error('Error getting location:', error);
@@ -243,27 +247,38 @@ window.checkAttendance = async () => {
     );
 };
 
-// Calculate distance between two points
-function calculateDistance(lat1, lng1, lat2, lng2) {
-    const R = 6371e3; // Earth's radius in meters
-    const φ1 = lat1 * Math.PI / 180;
-    const φ2 = lat2 * Math.PI / 180;
-    const Δφ = (lat2 - lat1) * Math.PI / 180;
-    const Δλ = (lng2 - lng1) * Math.PI / 180;
-
-    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-              Math.cos(φ1) * Math.cos(φ2) *
-              Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-    return R * c;
+// Update attendance status display
+function updateAttendanceStatusDisplay(time, distance, isInRadius) {
+    const statusDiv = document.getElementById('attendanceStatus');
+    const statusClass = isInRadius ? 'status-in' : 'status-out';
+    const statusText = isInRadius ? 'อยู่ในรัศมี' : 'อยู่นอกรัศมี';
+    const statusIcon = isInRadius ? 'fa-check-circle' : 'fa-exclamation-circle';
+    
+    statusDiv.innerHTML = `
+        <div class="p-4 rounded-lg ${statusClass}">
+            <div class="flex items-center justify-center space-x-2">
+                <i class="fas ${statusIcon}"></i>
+                <span class="font-semibold">เช็คชื่อล่าสุด: ${time}</span>
+            </div>
+            <div class="text-sm mt-1">
+                ระยะทาง: ${Math.round(distance)} เมตร - ${statusText}
+            </div>
+        </div>
+    `;
 }
 
-// Save attendance
-async function saveAttendance(lat, lng, distance) {
+// Save attendance - เพิ่มการบันทึกสถานะตำแหน่ง
+async function saveAttendance(lat, lng, distance, isInRadius) {
     try {
         const q = query(collection(db, 'students'), where('email', '==', currentUser.email));
         const querySnapshot = await getDocs(q);
+        
+        const now = new Date();
+        const timeString = now.toLocaleTimeString('th-TH', { 
+            hour: '2-digit', 
+            minute: '2-digit', 
+            second: '2-digit' 
+        });
         
         if (!querySnapshot.empty) {
             const studentData = querySnapshot.docs[0].data();
@@ -272,140 +287,124 @@ async function saveAttendance(lat, lng, distance) {
                 studentId: studentData.studentId,
                 studentName: studentData.name,
                 email: currentUser.email,
-                timestamp: new Date(),
+                timestamp: now,
                 location: { lat, lng },
                 distance: distance,
-                status: 'present'
+                isInRadius: isInRadius,
+                status: 'present' // ทุกคนได้สถานะ present
             });
         }
+        
+        return timeString;
     } catch (error) {
         console.error('Error saving attendance:', error);
+        return new Date().toLocaleTimeString('th-TH', { 
+            hour: '2-digit', 
+            minute: '2-digit', 
+            second: '2-digit' 
+        });
     }
 }
 
-// Admin functions
-window.addStudent = async () => {
-    const studentId = document.getElementById('studentId').value;
-    const studentName = document.getElementById('studentName').value;
-    const studentEmail = document.getElementById('studentEmail').value;
-    const studentYear = document.getElementById('studentYear').value;
-    
-    if (!studentId || !studentName || !studentEmail || !studentYear) {
-        Swal.fire({
-            icon: 'warning',
-            title: 'กรุณากรอกข้อมูลให้ครบ',
-            confirmButtonColor: '#3B82F6'
-        });
-        return;
-    }
-    
-    if (!studentEmail.endsWith('@msu.ac.th')) {
-        Swal.fire({
-            icon: 'error',
-            title: 'อีเมล์ไม่ถูกต้อง',
-            text: 'กรุณาใช้อีเมล์ @msu.ac.th เท่านั้น',
-            confirmButtonColor: '#3B82F6'
-        });
-        return;
-    }
-    
-    try {
-        await addDoc(collection(db, 'students'), {
-            studentId,
-            name: studentName,
-            email: studentEmail,
-            year: parseInt(studentYear),
-            createdAt: new Date()
-        });
-        
-        // Clear form
-        document.getElementById('studentId').value = '';
-        document.getElementById('studentName').value = '';
-        document.getElementById('studentEmail').value = '';
-        document.getElementById('studentYear').value = '';
-        
-        Swal.fire({
-            icon: 'success',
-            title: 'เพิ่มนิสิตสำเร็จ',
-            confirmButtonColor: '#10B981'
-        });
-        
-        await loadAdminData();
-    } catch (error) {
-        console.error('Error adding student:', error);
-        Swal.fire({
-            icon: 'error',
-            title: 'เกิดข้อผิดพลาด',
-            text: 'ไม่สามารถเพิ่มนิสิตได้',
-            confirmButtonColor: '#EF4444'
-        });
-    }
-};
+// Clear all attendance - ฟังก์ชันใหม่
+window.clearAllAttendance = async () => {
+    const result = await Swal.fire({
+        title: 'ยืนยันการลบข้อมูล',
+        text: 'คุณต้องการลบการเช็คชื่อทั้งหมดใช่หรือไม่?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#EF4444',
+        cancelButtonColor: '#6B7280',
+        confirmButtonText: 'ใช่, ลบทั้งหมด',
+        cancelButtonText: 'ยกเลิก'
+    });
 
-window.saveLocationSettings = async () => {
-    const lat = parseFloat(document.getElementById('refLat').value);
-    const lng = parseFloat(document.getElementById('refLng').value);
-    const radius = parseInt(document.getElementById('radius').value);
-    
-    if (!lat || !lng || !radius) {
-        Swal.fire({
-            icon: 'warning',
-            title: 'กรุณากรอกข้อมูลให้ครบ',
-            confirmButtonColor: '#3B82F6'
-        });
-        return;
-    }
-    
-    try {
-        await setDoc(doc(db, 'settings', 'location'), {
-            referenceLocation: { lat, lng },
-            allowedRadius: radius,
-            updatedAt: new Date()
-        });
-        
-        referenceLocation = { lat, lng };
-        allowedRadius = radius;
-        
-        Swal.fire({
-            icon: 'success',
-            title: 'บันทึกการตั้งค่าสำเร็จ',
-            confirmButtonColor: '#10B981'
-        });
-    } catch (error) {
-        console.error('Error saving location settings:', error);
-        Swal.fire({
-            icon: 'error',
-            title: 'เกิดข้อผิดพลาด',
-            text: 'ไม่สามารถบันทึกการตั้งค่าได้',
-            confirmButtonColor: '#EF4444'
-        });
-    }
-};
+    if (result.isConfirmed) {
+        try {
+            // Show loading
+            Swal.fire({
+                title: 'กำลังลบข้อมูล...',
+                allowOutsideClick: false,
+                showConfirmButton: false,
+                willOpen: () => {
+                    Swal.showLoading();
+                }
+            });
 
-// Load location settings
-async function loadLocationSettings() {
-    try {
-        const docRef = doc(db, 'settings', 'location');
-        const docSnap = await getDoc(docRef);
-        
-        if (docSnap.exists()) {
-            const data = docSnap.data();
-            referenceLocation = data.referenceLocation;
-            allowedRadius = data.allowedRadius;
+            // Delete all attendance records
+            const attendanceQuery = query(collection(db, 'attendance'));
+            const querySnapshot = await getDocs(attendanceQuery);
             
-            // Update admin form if visible
-            if (!adminDashboard.classList.contains('hidden')) {
-                document.getElementById('refLat').value = referenceLocation.lat;
-                document.getElementById('refLng').value = referenceLocation.lng;
-                document.getElementById('radius').value = allowedRadius;
-            }
+            const deletePromises = [];
+            querySnapshot.forEach((doc) => {
+                deletePromises.push(deleteDoc(doc.ref));
+            });
+            
+            await Promise.all(deletePromises);
+            
+            Swal.fire({
+                icon: 'success',
+                title: 'ลบข้อมูลสำเร็จ!',
+                text: 'ลบการเช็คชื่อทั้งหมดเรียบร้อยแล้ว',
+                confirmButtonColor: '#10B981'
+            });
+            
+            // Reload admin data
+            await loadAdminData();
+            
+        } catch (error) {
+            console.error('Error clearing attendance:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'เกิดข้อผิดพลาด',
+                text: 'ไม่สามารถลบข้อมูลได้',
+                confirmButtonColor: '#EF4444'
+            });
         }
-    } catch (error) {
-        console.error('Error loading location settings:', error);
     }
-}
+};
 
-// Load admin data
+// Delete individual attendance record
+window.deleteAttendance = async (docId) => {
+    const result = await Swal.fire({
+        title: 'ยืนยันการลบ',
+        text: 'คุณต้องการลบรายการนี้ใช่หรือไม่?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#EF4444',
+        cancelButtonColor: '#6B7280',
+        confirmButtonText: 'ใช่, ลบ',
+        cancelButtonText: 'ยกเลิก'
+    });
+
+    if (result.isConfirmed) {
+        try {
+            await deleteDoc(doc(db, 'attendance', docId));
+            
+            Swal.fire({
+                icon: 'success',
+                title: 'ลบสำเร็จ!',
+                text: 'ลบรายการเรียบร้อยแล้ว',
+                timer: 2000,
+                showConfirmButton: false
+            });
+            
+            // Reload admin data
+            await loadAdminData();
+            
+        } catch (error) {
+            console.error('Error deleting attendance:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'เกิดข้อผิดพลาด',
+                text: 'ไม่สามารถลบรายการได้',
+                confirmButtonColor: '#EF4444'
+            });
+        }
+    }
+};
+
+// Load admin data - อัปเดตให้แสดงสถิติและสถานะตำแหน่ง
 async function loadAdminData() {
     try {
         // Load total students
@@ -425,29 +424,61 @@ async function loadAdminData() {
         const attendanceSnapshot = await getDocs(attendanceQuery);
         document.getElementById('todayAttendance').textContent = attendanceSnapshot.size;
         
+        // Count in/out radius
+        let inRadius = 0;
+        let outRadius = 0;
+        
         // Load attendance table
         const attendanceTable = document.getElementById('attendanceTable');
         attendanceTable.innerHTML = '';
         
-        attendanceSnapshot.forEach((doc) => {
-            const data = doc.data();
+        attendanceSnapshot.forEach((docSnap) => {
+            const data = docSnap.data();
+            const docId = docSnap.id;
+            
+            // Count radius status
+            if (data.isInRadius) {
+                inRadius++;
+            } else {
+                outRadius++;
+            }
+            
             const row = document.createElement('tr');
             row.className = 'border-b border-gray-100 hover:bg-gray-50';
+            
+            const statusClass = data.isInRadius ? 'status-in' : 'status-out';
+            const statusText = data.isInRadius ? 'อยู่ในรัศมี' : 'อยู่นอกรัศมี';
+            const statusIcon = data.isInRadius ? 'fa-check-circle' : 'fa-exclamation-circle';
+            
             row.innerHTML = `
                 <td class="px-4 py-3 text-gray-800">${data.studentId}</td>
                 <td class="px-4 py-3 text-gray-800">${data.studentName}</td>
                 <td class="px-4 py-3 text-gray-600">${data.timestamp.toDate().toLocaleString('th-TH')}</td>
+                <td class="px-4 py-3 text-gray-600">${Math.round(data.distance)} ม.</td>
                 <td class="px-4 py-3">
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        <i class="fas fa-check mr-1"></i>
-                        เข้าเรียน
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusClass}">
+                        <i class="fas ${statusIcon} mr-1"></i>
+                        ${statusText}
                     </span>
+                </td>
+                <td class="px-4 py-3">
+                    <button onclick="deleteAttendance('${docId}')" 
+                            class="text-red-600 hover:text-red-800 transition-colors">
+                        <i class="fas fa-trash"></i>
+                    </button>
                 </td>
             `;
             attendanceTable.appendChild(row);
         });
         
+        // Update radius statistics
+        document.getElementById('inRadius').textContent = inRadius;
+        document.getElementById('outRadius').textContent = outRadius;
+        
     } catch (error) {
         console.error('Error loading admin data:', error);
     }
 }
+
+// เพิ่ม import สำหรับ deleteDoc
+import { getFirestore, collection, addDoc, getDocs, query, where, orderBy, doc, setDoc, getDoc, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
