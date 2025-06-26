@@ -218,7 +218,6 @@ window.checkAttendance = async () => {
                 html: `
                     <div class="text-lg">
                         <p class="mb-2">เวลาเช็คชื่อ: <strong>${currentTime}</strong></p>
-                        <p class="text-gray-600">ระยะทาง: ${Math.round(distance)} เมตร</p>
                     </div>
                 `,
                 confirmButtonColor: '#10B981',
